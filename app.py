@@ -8,7 +8,7 @@ from pathlib import Path
 
 # 定义模型路径 (请根据需要调整)
 # 假设 'app.py' 和 'ad_screening_model_v4_43.joblib' 都在 'E:/ABO_ML/ML' 文件夹中
-MODEL_PATH = Path("E:/ABO_ML/ML/ad_screening_model_v4_43.joblib") 
+MODEL_PATH = Path(__file__).parent / "ad_screening_model_v4_43.joblib"
 # 或者使用相对路径 (如果 app.py 在 ML 文件夹下):
 # MODEL_PATH = Path(__file__).parent / "ad_screening_model_v4_43.joblib"
 
@@ -196,4 +196,5 @@ def main_app():
 
 # --- 4. 运行 App ---
 if __name__ == "__main__":
+
     main_app()

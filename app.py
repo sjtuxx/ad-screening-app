@@ -6,11 +6,14 @@ from pathlib import Path
 
 # --- 1. 加载模型和预处理工件 ---
 
-# 定义模型路径 (请根据需要调整)
-# 假设 'app.py' 和 'ad_screening_model_v4_43.joblib' 都在 'E:/ABO_ML/ML' 文件夹中
-MODEL_PATH = Path(__file__).parent / "ad_screening_model_v4_43.joblib"
-# 或者使用相对路径 (如果 app.py 在 ML 文件夹下):
-# MODEL_PATH = Path(__file__).parent / "ad_screening_model_v4_43.joblib"
+# (重要!) 使用相对路径，以便本地和云端部署都能运行
+# 这行代码假定 'app.py' 和 '.joblib' 文件在同一个文件夹中
+try:
+    MODEL_PATH = Path(__file__).parent / "ad_screening_model_v4_43.joblib"
+except NameError:
+    # 兼容在某些非标准环境中运行 (例如 notebook)
+    MODEL_PATH = Path(".") / "ad_screening_model_v4_43.joblib"
+
 
 @st.cache_resource
 def load_artifacts(path):
@@ -19,8 +22,9 @@ def load_artifacts(path):
         artifacts = joblib.load(path)
         return artifacts
     except FileNotFoundError:
-        st.error(f"错误: 未在 {path} 找到模型文件。")
-        st.error("请确保您已经运行了 V4.43 脚本的步骤 25 (模型永久化)。")
+        st.error(f"错误: 未在 {path.resolve()} 找到模型文件。")
+        st.error("请确保您已经运行了 V4.43 脚本的步骤 25 (模型永久化)，")
+        st.error("并且 'ad_screening_model_v4_43.joblib' 文件与此 app.py 在同一个文件夹中。")
         return None
     except Exception as e:
         st.error(f"加载模型时出错: {e}")
@@ -175,26 +179,14 @@ def main_app():
                 st.progress(probability)
                 st.caption(f"该概率值 ({probability:.4f}) 表示模型预测个体为认知受损 (MCI/AD) 的可能性。")
                 
-                # 5. [V4.43 修复] 显示正确的混淆矩阵图
-                st.markdown("---")
-                st.subheader("模型性能参考 (来自 V4.43, 步骤 13)")
-                st.markdown(f"以下是 `{model_name}` 模型在*测试集*上使用*最佳阈值* ({threshold:.2f}) 时的混淆矩阵。")
-                
-                # (您需要将 V4.43 脚本生成的 'confusion_matrix_OPTIMAL_Random_Forest.pdf' 转换为 .png 格式)
-                # (并将该 .png 文件放在与 app.py 相同的文件夹中)
-                cm_image_path = Path("E:/ABO_ML/ML/confusion_matrix_OPTIMAL_Random_Forest.png")
-                if cm_image_path.exists():
-                    st.image(str(cm_image_path), caption="图 3A：基于最佳阈值的混淆矩阵 (测试集)")
-                else:
-                    st.warning("未找到 'confusion_matrix_OPTIMAL_Random_Forest.png' 图像文件。")
-                    st.markdown(f"请将 V4.43 脚本在 `{output_dir}` 中生成的 `confusion_matrix_OPTIMAL_Random_Forest.pdf` 转换为 **PNG** 格式并保存在 `{cm_image_path.parent}` 文件夹中。")
+                # --- [已删除] 混淆矩阵显示区域 ---
+                # (此部分已根据您的要求被移除)
 
             except Exception as e:
                 st.error(f"预测过程中发生错误: {e}")
-                st.error("请检查输入数据，特别是缺失值。")
+                st.error("请检查输入数据。")
 
 
 # --- 4. 运行 App ---
 if __name__ == "__main__":
-
     main_app()

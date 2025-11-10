@@ -1,0 +1,18 @@
+# E:/ABO_ML/ML/requirements.txt (新文件)
+
+streamlit
+joblib
+pandas
+numpy
+scikit-learn
+statsmodels
+seaborn
+matplotlib
+shap
+optuna
+xgboost
+lightgbm
+
+# (注意: 您的 V4.43 脚本导入了 MLstatkit，
+# 如果它是一个标准的 pip 包，也请添加它)
+MLstatkit

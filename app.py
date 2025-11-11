@@ -4,13 +4,10 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 import shap # 导入 SHAP
-import matplotlib.pyplot as plt # [V16] 导入 matplotlib 用于瀑布图
-
-# [V16 移除] components.html 不再需要
-# import streamlit.components.v1 as components 
+import streamlit.components.v1 as components # [V9] 导入 HTML 组件
 
 # --- 1. 语言和文本内容 (LANG_STRINGS) ---
-# [V16] 更新了 SHAP 帮助文本
+# [V7] 更新了错误提示
 LANG_STRINGS = {
     'zh': {
         'page_title': "AD筛选工具",
@@ -43,18 +40,18 @@ LANG_STRINGS = {
         'results_metric_label': "MCI/AD 预测概率",
         'results_caption': "该概率值 ({probability:.4f}) 表示模型预测个体为认知受损 (MCI/AD) 的可能性。",
         'shap_expander': "📊 显示/隐藏 个体预测归因 (SHAP 分析)",
-        'shap_help': "下图（瀑布图）显示了每个特征如何将预测概率从基线值 E[f(x)] ({base_value:.2f}) 推动到最终的预测值 f(x) ({final_value:.2f})。", # [V16] 更新
+        'shap_help': "下图显示了每个特征如何将预测概率从基线值（{base_value:.2f}）推动到最终值（{probability:.2f}）。",
         'shap_help_red': "**红色特征** (如 年龄) 推动预测**增加**风险。",
         'shap_help_blue': "**蓝色特征** (如 教育年限) 推动预测**降低**风险。",
         'errors': {
             'load_fail_header': "❌ 模型加载失败",
             'load_fail_help': "请检查下方的错误信息并确保模型文件存在。",
             'file_not_found': "❌ 错误：在 {path} 未找到模型文件。",
-            'file_not_found_help': "请确保您已运行 V4.43 脚本的步骤 25 (V7版)，并且 'ad_screening_model_v4_43_with_shap_data.joblib' 文件与此 app.py 在同一个文件夹中。", 
+            'file_not_found_help': "请确保您已运行 V4.43 脚本的步骤 25 (V7版)，并且 'ad_screening_model_v4_43_with_shap_data.joblib' 文件与此 app.py 在同一个文件夹中。", # [V7] 更新了文件名
             'load_error': "加载模型时出错： {e}",
             'predict_error': "预测过程中发生错误：",
             'predict_error_help': "请检查输入数据。",
-            'shap_error': "SHAP 背景数据加载失败。请确保您使用了 V7 版本的步骤 25 来重新生成 .joblib 文件。", 
+            'shap_error': "SHAP 背景数据加载失败。请确保您使用了 V7 版本的步骤 25 来重新生成 .joblib 文件。", # [V7] 更新了错误
             'shap_create_error': "创建 SHAP 分析器时出错："
         }
     },
@@ -89,18 +86,18 @@ LANG_STRINGS = {
         'results_metric_label': "MCI/AD Predicted Probability",
         'results_caption': "This probability ({probability:.4f}) represents the model's predicted likelihood of cognitive impairment (MCI/AD).",
         'shap_expander': "📊 Show/Hide Individual Prediction Attribution (SHAP Analysis)",
-        'shap_help': "The waterfall plot below shows how each feature pushed the prediction from the base value E[f(x)] ({base_value:.2f}) to the final output value f(x) ({final_value:.2f}).", # [V16] Updated
+        'shap_help': "The plot below shows how each feature pushed the prediction from the base value ({base_value:.2f}) to the final value ({probability:.2f}).",
         'shap_help_red': "**Red features** (e.g., Age) pushed the prediction to **increase** risk.",
         'shap_help_blue': "**Blue features** (e.g., Education) pushed the prediction to **decrease** risk.",
         'errors': {
             'load_fail_header': "❌ Model Load Failed",
             'load_fail_help': "Please check the error message above and ensure the model file exists.",
             'file_not_found': "❌ Error: Model file not found at {path}.",
-            'file_not_found_help': "Please ensure you have run Step 25 (V7) of the V4.43 script, and 'ad_screening_model_v4_43_with_shap_data.joblib' is in the same folder as app.py.", 
+            'file_not_found_help': "Please ensure you have run Step 25 (V7) of the V4.43 script, and 'ad_screening_model_v4_43_with_shap_data.joblib' is in the same folder as app.py.", # [V7]
             'load_error': "Error loading model: {e}",
             'predict_error': "An error occurred during prediction:",
             'predict_error_help': "Please check the input data.",
-            'shap_error': "SHAP background data failed to load. Please ensure you regenerated the .joblib file using Step 25 (V7).", 
+            'shap_error': "SHAP background data failed to load. Please ensure you regenerated the .joblib file using Step 25 (V7).", # [V7]
             'shap_create_error': "Error creating SHAP Explainer:"
         }
     }
@@ -298,7 +295,7 @@ def main_app():
     with col2:
         st.subheader(T['results_header'])
         
-        # --- 6.5 预测按钮和 SHAP 分析 [V16 修复] ---
+        # --- 6.5 预测按钮和 SHAP 分析 [V15 修复] ---
         if st.button(T['predict_button'], type="primary", use_container_width=True):
             
             try:
@@ -328,7 +325,7 @@ def main_app():
                 st.progress(probability)
                 st.caption(T['results_caption'].format(probability=probability))
                 
-                # --- C. [V16 修复] SHAP 分析 (使用 Waterfall Plot) ---
+                # --- C. [V1S 修复] SHAP 分析 ---
                 with st.expander(T['shap_expander']):
                     st.markdown("---")
                     
@@ -337,9 +334,9 @@ def main_app():
                     
                     # 2. [V8 修复] 检查 shap_values 是列表(size 2)还是单个数组
                     if isinstance(shap_values, list) and len(shap_values) == 2:
-                        shap_values_class1_single_sample = shap_values[1][0] # 1D (12,)
+                        shap_values_class1_single_sample = shap_values[1][0]
                     elif isinstance(shap_values, np.ndarray) and shap_values.shape[0] == 1:
-                        shap_values_class1_single_sample = shap_values[0] # 1D (12,)
+                        shap_values_class1_single_sample = shap_values[0] # This is 1D (12,)
                     else:
                         try:
                             st.warning("SHAP analysis returned an unexpected list format. Attempting to parse.")
@@ -348,32 +345,32 @@ def main_app():
                             st.error(f"SHAP analysis returned an unhandled format: {type(shap_values)}")
                             raise 
 
-                    # 3. [V16 新增] 创建一个 SHAP Explanation 对象
-                    #    这是调用瀑布图的最稳定方法
-                    shap_explanation = shap.Explanation(
-                        values=shap_values_class1_single_sample,
-                        base_values=base_value_class1,
-                        data=shap_features.values, # 1D 原始特征值
-                        feature_names=shap_features.index.tolist() # 标签列表
-                    )
-                    
-                    # [V16] f(x) 是最终的 "logit" 空间输出, 不是概率
-                    final_value = base_value_class1 + shap_values_class1_single_sample.sum()
-                    
-                    st.markdown(T['shap_help'].format(base_value=base_value_class1, final_value=final_value))
+                    st.markdown(T['shap_help'].format(base_value=base_value_class1, probability=probability))
                     st.markdown(T['shap_help_red'])
                     st.markdown(T['shap_help_blue'])
                     
-                    # 4. [V16] 绘制 SHAP 瀑布图
+                    # 3. [V15 修复] 绘制 SHAP 力图 (Force Plot)
+                    #    我们将尝试 2D shap_values 和 2D features
                     
-                    # (a) 创建一个 matplotlib 图形
-                    fig, ax = plt.subplots(figsize=(10, 8))
+                    # (a) [V14] `shap_values` 转换为 2D
+                    shap_values_2d = shap_values_class1_single_sample.reshape(1, -1)
                     
-                    # (b) 绘制瀑布图, show=False 阻止它立即显示
-                    shap.waterfall_plot(shap_explanation, max_display=12, show=False)
+                    # (b) [V10] `features` 转换为 2D
+                    features_2d = shap_features.values.reshape(1, -1)
                     
-                    # (c) 使用 st.pyplot() 在 Streamlit 中显示该图形
-                    st.pyplot(fig, clear_figure=True)
+                    # (c) 创建 SHAP 力图对象
+                    force_plot = shap.force_plot(
+                        base_value=base_value_class1,
+                        shap_values=shap_values_2d,                  # [V15 修复] 2D array
+                        features=features_2d,                        # [V15 修复] 2D array
+                        feature_names=shap_features.index.tolist()   # 标签列表
+                    )
+                                    
+                    # (d) 使用 .html() 方法将其转换为 HTML 字符串
+                    shap_html = f"<head>{shap.getjs()}</head><body>{force_plot.html()}</body>"
+                    
+                    # (e) 使用 st.components.v1.html 渲染
+                    components.html(shap_html, height=150, width=800, scrolling=False)
                     
             except Exception as e:
                 st.error(T['errors']['predict_error'])

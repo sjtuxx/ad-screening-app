@@ -342,6 +342,6 @@ def main_app():
 
 # --- 6. 运行 App ---
 if __name__ == "__main__":
-    # [V6] 初始化 SHAP (它需要 JS)
-    shap.initjs()
+    # [V6] (shap.initjs() 已被移除, st.shap() 会自动处理 JS)
     main_app()
+

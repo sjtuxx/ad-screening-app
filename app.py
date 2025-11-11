@@ -347,20 +347,20 @@ def main_app():
 
                     st.markdown(T['shap_help'].format(base_value=base_value_class1, probability=probability))
                     st.markdown(T['shap_help_red'])
-                    st.markdown(T['shap_help_blue'])
+                    # 3. [V13 修复] 绘制 SHAP 力图 (Force Plot)
+                    #    我们将尝试 1D shap_values 和 2D features
                     
-                    # 3. [V12 修复] 绘制 SHAP 力图 (Force Plot)
-                    #    为单一样本传递 1D 数组
+                    # (a) [V12] `shap_values_class1_single_sample` 已经是 1D, shape (12,)
                     
-                    # (a) `shap_values_class1_single_sample` 已经是 1D, shape (12,)
-                    # (b) `shap_features.values` 已经是 1D, shape (12,)
+                    # (b) [V10] 将 1D 的 `shap_features.values` 转换为 2D
+                    features_2d = shap_features.values.reshape(1, -1)
                     
                     # (c) 创建 SHAP 力图对象
                     force_plot = shap.force_plot(
                         base_value=base_value_class1,
                         shap_values=shap_values_class1_single_sample, # [V12] 1D array
-                        features=shap_features.values,               # [V12] 1D array
-                        feature_names=shap_features.index.tolist()  # 标签列表
+                        features=features_2d,                        # [V13 修复] 2D array
+                        feature_names=shap_features.index.tolist()   # 标签列表
                     )
                     
                     # (d) 使用 .html() 方法将其转换为 HTML 字符串

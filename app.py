@@ -294,7 +294,7 @@ def main_app():
     with col2:
         st.subheader(T['results_header'])
         
-        # --- 6.5 预测按钮和 SHAP 分析 [V7 重构] ---
+        # --- 6.5 预测按钮和 SHAP 分析 [V8 修复] ---
         if st.button(T['predict_button'], type="primary", use_container_width=True):
             
             try:
@@ -324,15 +324,36 @@ def main_app():
                 st.progress(probability)
                 st.caption(T['results_caption'].format(probability=probability))
                 
-                # --- C. [V7 修改] SHAP 分析 ---
+                # --- C. [V8 修复] SHAP 分析 ---
                 with st.expander(T['shap_expander']):
                     st.markdown("---")
                     
                     # 1. [V7] explainer 已经加载
                     shap_values = explainer.shap_values(X_scaled)
                     
-                    # 2. [V7] base_value_class1 已经加载
-                    shap_values_class1 = shap_values[1][0]
+                    # 2. [V8 修复] 检查 shap_values 是列表(size 2)还是单个数组
+                    #    X_scaled 是单个样本, shape (1, 12)
+                    
+                    if isinstance(shap_values, list) and len(shap_values) == 2:
+                        # 正常情况：返回 [shap_class_0, shap_class_1]
+                        # shap_values[1] 是 class 1 的数组, shape (1, 12)
+                        # 我们需要第一个 (也是唯一一个) 样本 [0]
+                        shap_values_class1_single_sample = shap_values[1][0]
+                    
+                    elif isinstance(shap_values, np.ndarray) and shap_values.shape[0] == 1:
+                        # 异常情况：只返回了一个数组, shape (1, 12)
+                        # 我们假设这就是 class 1, 并获取第一个 (也是唯一一个) 样本 [0]
+                        shap_values_class1_single_sample = shap_values[0]
+                    
+                    else:
+                        # 捕获其他意外格式, 例如 list[1]
+                        try:
+                            # 尝试假设它是一个单元素列表
+                            st.warning("SHAP analysis returned an unexpected list format. Attempting to parse.")
+                            shap_values_class1_single_sample = shap_values[0][0]
+                        except Exception:
+                            st.error(f"SHAP analysis returned an unhandled format: {type(shap_values)}")
+                            raise # 重新引发错误，停止执行
 
                     st.markdown(T['shap_help'].format(base_value=base_value_class1, probability=probability))
                     st.markdown(T['shap_help_red'])
@@ -341,7 +362,7 @@ def main_app():
                     # 3. 绘制 SHAP 力图 (Force Plot)
                     st.shap(shap.force_plot(
                         base_value=base_value_class1,
-                        shap_values=shap_values_class1,
+                        shap_values=shap_values_class1_single_sample, # <--- [V8] 使用修复后的变量
                         features=shap_features.values, 
                         feature_names=shap_features.index 
                     ), height=150, width=800)

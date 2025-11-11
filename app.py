@@ -3,11 +3,11 @@ import joblib
 import pandas as pd
 import numpy as np
 from pathlib import Path
-import shap # 导入 SHAP
-import streamlit.components.v1 as components # [V9] 导入 HTML 组件
+
+# [V16] 移除了 shap 和 streamlit.components.v1 的导入
 
 # --- 1. 语言和文本内容 (LANG_STRINGS) ---
-# [V7] 更新了错误提示
+# [V16] 移除了所有 SHAP 相关的文本
 LANG_STRINGS = {
     'zh': {
         'page_title': "AD筛选工具",
@@ -39,20 +39,14 @@ LANG_STRINGS = {
         'results_delta_low': "低于阈值 {threshold:.4f}",
         'results_metric_label': "MCI/AD 预测概率",
         'results_caption': "该概率值 ({probability:.4f}) 表示模型预测个体为认知受损 (MCI/AD) 的可能性。",
-        'shap_expander': "📊 显示/隐藏 个体预测归因 (SHAP 分析)",
-        'shap_help': "下图显示了每个特征如何将预测概率从基线值（{base_value:.2f}）推动到最终值（{probability:.2f}）。",
-        'shap_help_red': "**红色特征** (如 年龄) 推动预测**增加**风险。",
-        'shap_help_blue': "**蓝色特征** (如 教育年限) 推动预测**降低**风险。",
         'errors': {
             'load_fail_header': "❌ 模型加载失败",
             'load_fail_help': "请检查下方的错误信息并确保模型文件存在。",
             'file_not_found': "❌ 错误：在 {path} 未找到模型文件。",
-            'file_not_found_help': "请确保您已运行 V4.43 脚本的步骤 25 (V7版)，并且 'ad_screening_model_v4_43_with_shap_data.joblib' 文件与此 app.py 在同一个文件夹中。", # [V7] 更新了文件名
+            'file_not_found_help': "请确保您已运行 V4.43 脚本的原始步骤 25 (无 SHAP)，并且 'ad_screening_model_v4_43.joblib' 文件与此 app.py 在同一个文件夹中。", # [V16] 更新了文件名和帮助
             'load_error': "加载模型时出错： {e}",
             'predict_error': "预测过程中发生错误：",
             'predict_error_help': "请检查输入数据。",
-            'shap_error': "SHAP 背景数据加载失败。请确保您使用了 V7 版本的步骤 25 来重新生成 .joblib 文件。", # [V7] 更新了错误
-            'shap_create_error': "创建 SHAP 分析器时出错："
         }
     },
     'en': {
@@ -85,20 +79,14 @@ LANG_STRINGS = {
         'results_delta_low': "Below threshold {threshold:.4f}",
         'results_metric_label': "MCI/AD Predicted Probability",
         'results_caption': "This probability ({probability:.4f}) represents the model's predicted likelihood of cognitive impairment (MCI/AD).",
-        'shap_expander': "📊 Show/Hide Individual Prediction Attribution (SHAP Analysis)",
-        'shap_help': "The plot below shows how each feature pushed the prediction from the base value ({base_value:.2f}) to the final value ({probability:.2f}).",
-        'shap_help_red': "**Red features** (e.g., Age) pushed the prediction to **increase** risk.",
-        'shap_help_blue': "**Blue features** (e.g., Education) pushed the prediction to **decrease** risk.",
         'errors': {
             'load_fail_header': "❌ Model Load Failed",
             'load_fail_help': "Please check the error message above and ensure the model file exists.",
             'file_not_found': "❌ Error: Model file not found at {path}.",
-            'file_not_found_help': "Please ensure you have run Step 25 (V7) of the V4.43 script, and 'ad_screening_model_v4_43_with_shap_data.joblib' is in the same folder as app.py.", # [V7]
+            'file_not_found_help': "Please ensure you have run the original Step 25 (no SHAP) of the V4.43 script, and 'ad_screening_model_v4_43.joblib' is in the same folder as app.py.", # [V16]
             'load_error': "Error loading model: {e}",
             'predict_error': "An error occurred during prediction:",
-            'predict_error_help': "Please check the input data.",
-            'shap_error': "SHAP background data failed to load. Please ensure you regenerated the .joblib file using Step 25 (V7).", # [V7]
-            'shap_create_error': "Error creating SHAP Explainer:"
+            'predict_error_help': "Please check the input data."
         }
     }
 }
@@ -108,21 +96,18 @@ if 'lang' not in st.session_state:
     st.session_state.lang = 'zh' 
 
 # --- 3. 加载模型和预处理工件 ---
-# [V7] 更改了模型文件名
+# [V16] 恢复到原始的、不含 SHAP 的 .joblib 文件名
 try:
-    MODEL_PATH = Path(__file__).parent / "ad_screening_model_v4_43_with_shap_data.joblib"
+    MODEL_PATH = Path(__file__).parent / "ad_screening_model_v4_43.joblib"
 except NameError:
-    MODEL_PATH = Path(".") / "ad_screening_model_v4_43_with_shap_data.joblib"
+    MODEL_PATH = Path(".") / "ad_screening_model_v4_43.joblib"
 
 @st.cache_resource
 def load_artifacts(path):
     T = LANG_STRINGS[st.session_state.lang]['errors'] 
     try:
         artifacts = joblib.load(path)
-        # [V7] 检查 'shap_background_data' 是否存在
-        if 'shap_background_data' not in artifacts:
-             st.error(T['shap_error'])
-             return None
+        # [V16] 移除了对 'shap_background_data' 的检查
         return artifacts
     except FileNotFoundError:
         st.error(T['file_not_found'].format(path=path.resolve()))
@@ -134,42 +119,17 @@ def load_artifacts(path):
 
 artifacts = load_artifacts(MODEL_PATH)
 
-# --- 4. [V7 新增] 实时创建并缓存 Explainer ---
-@st.cache_resource
-def create_explainer_and_base_value(_artifacts):
+# --- 4. [V16] 恢复为单一的预测函数 ---
+def preprocess_and_predict(input_data, artifacts):
     """
-    在应用启动时运行一次，使用云端的 SHAP 库版本创建 Explainer。
+    使用加载的工件对新输入数据进行完整的预处理和预测。
     """
-    T = LANG_STRINGS[st.session_state.lang]['errors']
-    try:
-        model = _artifacts['model']
-        background_data = _artifacts['shap_background_data']
-        
-        # [V7 关键变更] 在此实时创建 explainer
-        explainer = shap.TreeExplainer(model, background_data)
-        
-        # [V7] 在此获取基线值
-        if isinstance(explainer.expected_value, (list, np.ndarray)):
-            base_value_class1 = explainer.expected_value[1]
-        else:
-            base_value_class1 = explainer.expected_value 
-            
-        return explainer, base_value_class1
-    except Exception as e:
-        st.error(f"{T['shap_create_error']} {e}")
-        return None, None
-
-# --- 5. 定义预测函数 ---
-@st.cache_data(show_spinner=False)
-def preprocess_data(input_data, _artifacts):
-    """
-    仅执行预处理，返回可用于模型和 SHAP 的 X_scaled。
-    """
-    imputer = _artifacts["imputer"]
-    scaler = _artifacts["scaler"]
-    feature_cols = _artifacts["feature_cols"]
-    continuous_cols = _artifacts["continuous_cols"]
-    binary_cols = _artifacts["binary_cols"]
+    imputer = artifacts["imputer"]
+    scaler = artifacts["scaler"]
+    model = artifacts["model"]
+    feature_cols = artifacts["feature_cols"]
+    continuous_cols = artifacts["continuous_cols"]
+    binary_cols = artifacts["binary_cols"]
     
     input_df = pd.DataFrame([input_data])
     X_raw = input_df[feature_cols] 
@@ -187,11 +147,14 @@ def preprocess_data(input_data, _artifacts):
         if cols_to_scale:
             X_scaled[cols_to_scale] = scaler.transform(X_imputed[cols_to_scale])
     
-    return X_scaled
+    # [V16] 在函数内部完成预测
+    probability = artifacts["model"].predict_proba(X_scaled)[:, 1]
+    
+    return probability[0] 
 
-# --- 6. 构建 Streamlit 用户界面 ---
+# --- 5. 构建 Streamlit 用户界面 ---
 def main_app():
-    # --- 6.1 设置语言 ---
+    # --- 5.1 设置语言 ---
     st.sidebar.radio(
         label=LANG_STRINGS['zh']['lang_select'], 
         options=['zh', 'en'],
@@ -202,17 +165,14 @@ def main_app():
     lang = st.session_state.lang
     T = LANG_STRINGS[lang]
 
-    # --- 6.2 检查模型是否加载成功 ---
+    # --- 5.2 检查模型是否加载成功 ---
     if artifacts is None:
         st.header(T['errors']['load_fail_header'])
         st.write(T['errors']['load_fail_help'])
         return
 
-    # [V7 新增] 加载 Explainer 和 Base Value
-    explainer, base_value_class1 = create_explainer_and_base_value(artifacts)
-    if explainer is None:
-        return # 如果 explainer 创建失败，则停止
-
+    # [V16] 移除了 'create_explainer_and_base_value' 的调用
+    
     threshold = artifacts["optimal_threshold"]
     model_name = artifacts["model_name"]
     
@@ -221,7 +181,7 @@ def main_app():
     st.markdown(T['model_info'].format(model_name=model_name, threshold=threshold))
     st.markdown("---")
 
-    # --- 6.3 侧边栏输入 ---
+    # --- 5.3 侧边栏输入 ---
     st.sidebar.header(T['sidebar_header'])
     st.sidebar.markdown(T['sidebar_help'])
     
@@ -259,7 +219,7 @@ def main_app():
     choice_gds = st.sidebar.selectbox(T_FEATURES['GDS_DIA'], options=map_status.keys())
     input_features['GDS_DIA'] = map_status[choice_gds]
     
-    # --- 6.4 主面板显示 ---
+    # --- 5.4 主面板显示 ---
     col1, col2 = st.columns([1, 2])
     
     display_labels = T['features']
@@ -276,17 +236,13 @@ def main_app():
             display_value = next((k for k, v in map_status.items() if v == value), value)
         display_data_list.append({
             'label': label,
-            'value': display_value,
-            'original_value': value
+            'value': display_value
         })
     
     display_df_for_table = pd.DataFrame(display_data_list).set_index('label')[['value']]
     display_df_for_table.index.name = T['input_table_cols']['feature']
     display_df_for_table.columns = [T['input_table_cols']['value']]
-    
-    # [V7] 为 SHAP 创建有序的输入 (原始值 和 标签)
-    shap_features = pd.Series([d['original_value'] for d in display_data_list], index=[d['label'] for d in display_data_list])
-    
+        
     with col1:
         st.subheader(T['input_summary'])
         st.markdown(T['input_help'])
@@ -295,17 +251,14 @@ def main_app():
     with col2:
         st.subheader(T['results_header'])
         
-        # --- 6.5 预测按钮和 SHAP 分析 [V15 修复] ---
+        # --- 5.5 预测按钮 [V16 修复] ---
         if st.button(T['predict_button'], type="primary", use_container_width=True):
             
             try:
-                # --- A. 预处理 ---
-                X_scaled = preprocess_data(input_features, artifacts)
+                # --- A. [V16] 调用单一预测函数 ---
+                probability = preprocess_and_predict(input_features, artifacts)
                 
                 # --- B. 模型预测 ---
-                model = artifacts["model"]
-                probability = model.predict_proba(X_scaled)[:, 1][0]
-                
                 if probability >= threshold:
                     classification = T['results_risk_high']
                     delta_text = T['results_delta_high'].format(threshold=threshold)
@@ -325,58 +278,13 @@ def main_app():
                 st.progress(probability)
                 st.caption(T['results_caption'].format(probability=probability))
                 
-                # --- C. [V1S 修复] SHAP 分析 ---
-                with st.expander(T['shap_expander']):
-                    st.markdown("---")
-                    
-                    # 1. [V7] explainer 已经加载
-                    shap_values = explainer.shap_values(X_scaled)
-                    
-                    # 2. [V8 修复] 检查 shap_values 是列表(size 2)还是单个数组
-                    if isinstance(shap_values, list) and len(shap_values) == 2:
-                        shap_values_class1_single_sample = shap_values[1][0]
-                    elif isinstance(shap_values, np.ndarray) and shap_values.shape[0] == 1:
-                        shap_values_class1_single_sample = shap_values[0] # This is 1D (12,)
-                    else:
-                        try:
-                            st.warning("SHAP analysis returned an unexpected list format. Attempting to parse.")
-                            shap_values_class1_single_sample = shap_values[0][0]
-                        except Exception:
-                            st.error(f"SHAP analysis returned an unhandled format: {type(shap_values)}")
-                            raise 
-
-                    st.markdown(T['shap_help'].format(base_value=base_value_class1, probability=probability))
-                    st.markdown(T['shap_help_red'])
-                    st.markdown(T['shap_help_blue'])
-                    
-                    # 3. [V15 修复] 绘制 SHAP 力图 (Force Plot)
-                    #    我们将尝试 2D shap_values 和 2D features
-                    
-                    # (a) [V14] `shap_values` 转换为 2D
-                    shap_values_2d = shap_values_class1_single_sample.reshape(1, -1)
-                    
-                    # (b) [V10] `features` 转换为 2D
-                    features_2d = shap_features.values.reshape(1, -1)
-                    
-                    # (c) 创建 SHAP 力图对象
-                    force_plot = shap.force_plot(
-                        base_value=base_value_class1,
-                        shap_values=shap_values_2d,                  # [V15 修复] 2D array
-                        features=features_2d,                        # [V15 修复] 2D array
-                        feature_names=shap_features.index.tolist()   # 标签列表
-                    )
-                                    
-                    # (d) 使用 .html() 方法将其转换为 HTML 字符串
-                    shap_html = f"<head>{shap.getjs()}</head><body>{force_plot.html()}</body>"
-                    
-                    # (e) 使用 st.components.v1.html 渲染
-                    components.html(shap_html, height=150, width=800, scrolling=False)
-                    
+                # --- C. [V16] 移除了 SHAP expander ---
+                
             except Exception as e:
                 st.error(T['errors']['predict_error'])
                 st.exception(e)
                 st.error(T['errors']['predict_error_help'])
 
-# --- 7. 运行 App ---
+# --- 6. 运行 App ---
 if __name__ == "__main__":
     main_app()

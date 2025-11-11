@@ -295,7 +295,7 @@ def main_app():
     with col2:
         st.subheader(T['results_header'])
         
-        # --- 6.5 预测按钮和 SHAP 分析 [V11 修复] ---
+        # --- 6.5 预测按钮和 SHAP 分析 [V12 修复] ---
         if st.button(T['predict_button'], type="primary", use_container_width=True):
             
             try:
@@ -325,7 +325,7 @@ def main_app():
                 st.progress(probability)
                 st.caption(T['results_caption'].format(probability=probability))
                 
-                # --- C. [V11 修复] SHAP 分析 ---
+                # --- C. [V12 修复] SHAP 分析 ---
                 with st.expander(T['shap_expander']):
                     st.markdown("---")
                     
@@ -349,21 +349,18 @@ def main_app():
                     st.markdown(T['shap_help_red'])
                     st.markdown(T['shap_help_blue'])
                     
-                    # 3. [V11 修复] 绘制 SHAP 力图 (Force Plot)
-                    #    确保 shap_values 和 features 都是 2D
+                    # 3. [V12 修复] 绘制 SHAP 力图 (Force Plot)
+                    #    为单一样本传递 1D 数组
                     
-                    # (a) [V10] 将 1D 的 `shap_features.values` 转换为 2D
-                    features_2d = shap_features.values.reshape(1, -1)
-                    
-                    # (b) [V11 新增] 将 1D 的 SHAP values 也转换为 2D
-                    shap_values_2d = shap_values_class1_single_sample.reshape(1, -1)
+                    # (a) `shap_values_class1_single_sample` 已经是 1D, shape (12,)
+                    # (b) `shap_features.values` 已经是 1D, shape (12,)
                     
                     # (c) 创建 SHAP 力图对象
                     force_plot = shap.force_plot(
                         base_value=base_value_class1,
-                        shap_values=shap_values_2d, # [V11] 2D array
-                        features=features_2d, # [V10] 2D array
-                        feature_names=shap_features.index.tolist() # 标签列表
+                        shap_values=shap_values_class1_single_sample, # [V12] 1D array
+                        features=shap_features.values,               # [V12] 1D array
+                        feature_names=shap_features.index.tolist()  # 标签列表
                     )
                     
                     # (d) 使用 .html() 方法将其转换为 HTML 字符串

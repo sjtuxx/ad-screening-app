@@ -295,7 +295,7 @@ def main_app():
     with col2:
         st.subheader(T['results_header'])
         
-        # --- 6.5 预测按钮和 SHAP 分析 [V10 修复] ---
+        # --- 6.5 预测按钮和 SHAP 分析 [V11 修复] ---
         if st.button(T['predict_button'], type="primary", use_container_width=True):
             
             try:
@@ -325,7 +325,7 @@ def main_app():
                 st.progress(probability)
                 st.caption(T['results_caption'].format(probability=probability))
                 
-                # --- C. [V10 修复] SHAP 分析 ---
+                # --- C. [V11 修复] SHAP 分析 ---
                 with st.expander(T['shap_expander']):
                     st.markdown("---")
                     
@@ -349,24 +349,27 @@ def main_app():
                     st.markdown(T['shap_help_red'])
                     st.markdown(T['shap_help_blue'])
                     
-                    # 3. [V10 修复] 绘制 SHAP 力图 (Force Plot)
-                    #    `features` 参数需要是 2D 数组 (1, n_features)
+                    # 3. [V11 修复] 绘制 SHAP 力图 (Force Plot)
+                    #    确保 shap_values 和 features 都是 2D
                     
                     # (a) [V10] 将 1D 的 `shap_features.values` 转换为 2D
                     features_2d = shap_features.values.reshape(1, -1)
                     
-                    # (b) 创建 SHAP 力图对象
+                    # (b) [V11 新增] 将 1D 的 SHAP values 也转换为 2D
+                    shap_values_2d = shap_values_class1_single_sample.reshape(1, -1)
+                    
+                    # (c) 创建 SHAP 力图对象
                     force_plot = shap.force_plot(
                         base_value=base_value_class1,
-                        shap_values=shap_values_class1_single_sample, # 1D array (n_features,)
-                        features=features_2d, # 2D array (1, n_features)
+                        shap_values=shap_values_2d, # [V11] 2D array
+                        features=features_2d, # [V10] 2D array
                         feature_names=shap_features.index.tolist() # 标签列表
                     )
                     
-                    # (c) 使用 .html() 方法将其转换为 HTML 字符串
+                    # (d) 使用 .html() 方法将其转换为 HTML 字符串
                     shap_html = f"<head>{shap.getjs()}</head><body>{force_plot.html()}</body>"
                     
-                    # (d) 使用 st.components.v1.html 渲染
+                    # (e) 使用 st.components.v1.html 渲染
                     components.html(shap_html, height=150, width=800, scrolling=False)
                     
             except Exception as e:

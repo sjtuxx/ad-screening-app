@@ -336,7 +336,7 @@ def main_app():
                     if isinstance(shap_values, list) and len(shap_values) == 2:
                         shap_values_class1_single_sample = shap_values[1][0]
                     elif isinstance(shap_values, np.ndarray) and shap_values.shape[0] == 1:
-                        shap_values_class1_single_sample = shap_values[0]
+                        shap_values_class1_single_sample = shap_values[0] # This is 1D (12,)
                     else:
                         try:
                             st.warning("SHAP analysis returned an unexpected list format. Attempting to parse.")
@@ -347,6 +347,8 @@ def main_app():
 
                     st.markdown(T['shap_help'].format(base_value=base_value_class1, probability=probability))
                     st.markdown(T['shap_help_red'])
+                    st.markdown(T['shap_help_blue'])
+                    
                     # 3. [V13 修复] 绘制 SHAP 力图 (Force Plot)
                     #    我们将尝试 1D shap_values 和 2D features
                     

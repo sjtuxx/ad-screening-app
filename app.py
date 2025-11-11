@@ -295,7 +295,7 @@ def main_app():
     with col2:
         st.subheader(T['results_header'])
         
-        # --- 6.5 预测按钮和 SHAP 分析 [V14 修复] ---
+        # --- 6.5 预测按钮和 SHAP 分析 [V15 修复] ---
         if st.button(T['predict_button'], type="primary", use_container_width=True):
             
             try:
@@ -325,7 +325,7 @@ def main_app():
                 st.progress(probability)
                 st.caption(T['results_caption'].format(probability=probability))
                 
-                # --- C. [V14 修复] SHAP 分析 ---
+                # --- C. [V1S 修复] SHAP 分析 ---
                 with st.expander(T['shap_expander']):
                     st.markdown("---")
                     
@@ -349,20 +349,20 @@ def main_app():
                     st.markdown(T['shap_help_red'])
                     st.markdown(T['shap_help_blue'])
                     
-                    # 3. [V14 修复] 绘制 SHAP 力图 (Force Plot)
-                    #    我们将尝试 2D shap_values 和 1D features
+                    # 3. [V15 修复] 绘制 SHAP 力图 (Force Plot)
+                    #    我们将尝试 2D shap_values 和 2D features
                     
                     # (a) [V14] `shap_values` 转换为 2D
                     shap_values_2d = shap_values_class1_single_sample.reshape(1, -1)
                     
-                    # (b) [V12] `shap_features.values` 保持 1D
-                    features_1d = shap_features.values
+                    # (b) [V10] `features` 转换为 2D
+                    features_2d = shap_features.values.reshape(1, -1)
                     
                     # (c) 创建 SHAP 力图对象
                     force_plot = shap.force_plot(
                         base_value=base_value_class1,
-                        shap_values=shap_values_2d,                  # [V14 修复] 2D array
-                        features=features_1d,                        # [V12] 1D array
+                        shap_values=shap_values_2d,                  # [V15 修复] 2D array
+                        features=features_2d,                        # [V15 修复] 2D array
                         feature_names=shap_features.index.tolist()   # 标签列表
                     )
                                     

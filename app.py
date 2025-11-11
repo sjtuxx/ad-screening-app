@@ -3,10 +3,10 @@ import joblib
 import pandas as pd
 import numpy as np
 from pathlib import Path
+import shap # <--- [V6] 必须导入 SHAP
 
 # --- 1. 语言和文本内容 (LANG_STRINGS) ---
-# 包含所有界面文本的双语字典
-# [V5 变更] 移除了选项中的 (0/1)，并为中文添加了 'has_none' 映射
+# [V6] 添加了 SHAP 相关的翻译
 LANG_STRINGS = {
     'zh': {
         'page_title': "AD筛选工具",
@@ -18,22 +18,14 @@ LANG_STRINGS = {
         'subheader_continuous': "连续特征",
         'subheader_binary': "二分类特征",
         'features': {
-            'age': '年龄 (岁)',
-            'BMI': 'BMI (kg/m²)',
-            'ABO': '血清Aβ寡聚体 (ABO)',
-            'edu': '教育年限 (年)',
-            'gender': '性别', # [V5] 移除了 (1=男性)
-            'alcohol': '饮酒史',
-            'dementia_family_history': '痴呆家族史',
-            'hypertension': '高血压',
-            'diabetes': '糖尿病',
-            'hyperlipidemia': '高血脂',
-            'APOE4_carrier': 'APOE ε4 携带状态',
-            'GDS_DIA': '抑郁症状 (GDS)'
+            'age': '年龄 (岁)', 'BMI': 'BMI (kg/m²)', 'ABO': '血清Aβ寡聚体 (ABO)', 'edu': '教育年限 (年)',
+            'gender': '性别', 'alcohol': '饮酒史', 'dementia_family_history': '痴呆家族史',
+            'hypertension': '高血压', 'diabetes': '糖尿病', 'hyperlipidemia': '高血脂',
+            'APOE4_carrier': 'APOE ε4 携带状态', 'GDS_DIA': '抑郁症状 (GDS)'
         },
-        'gender_map': {'女性': 0, '男性': 1}, # [V5]
-        'binary_map_status': {'否': 0, '是': 1}, # [V5]
-        'binary_map_history': {'无': 0, '有': 1}, # [V5]
+        'gender_map': {'女性': 0, '男性': 1},
+        'binary_map_status': {'否': 0, '是': 1}, 
+        'binary_map_history': {'无': 0, '有': 1}, 
         'input_summary': "模型输入总览",
         'input_help': "请在左侧侧边栏中修改值。",
         'input_table_cols': {'feature': "特征", 'value': "输入值"},
@@ -46,14 +38,19 @@ LANG_STRINGS = {
         'results_delta_low': "低于阈值 {threshold:.4f}",
         'results_metric_label': "MCI/AD 预测概率",
         'results_caption': "该概率值 ({probability:.4f}) 表示模型预测个体为认知受损 (MCI/AD) 的可能性。",
+        'shap_expander': "📊 显示/隐藏 个体预测归因 (SHAP 分析)",
+        'shap_help': "下图显示了每个特征如何将预测概率从基线值（{base_value:.2f}）推动到最终值（{probability:.2f}）。",
+        'shap_help_red': "**红色特征** (如 年龄) 推动预测**增加**风险。",
+        'shap_help_blue': "**蓝色特征** (如 教育年限) 推动预测**降低**风险。",
         'errors': {
             'load_fail_header': "❌ 模型加载失败",
             'load_fail_help': "请检查下方的错误信息并确保模型文件存在。",
             'file_not_found': "❌ 错误：在 {path} 未找到模型文件。",
-            'file_not_found_help': "请确保您已运行 V4.43 脚本的步骤 25，并且 'ad_screening_model_v4_43.joblib' 文件与此 app.py 在同一个文件夹中。",
+            'file_not_found_help': "请确保您已运行 V4.43 脚本的步骤 25 (V6版)，并且 'ad_screening_model_v4_43_with_shap.joblib' 文件与此 app.py 在同一个文件夹中。",
             'load_error': "加载模型时出错： {e}",
             'predict_error': "预测过程中发生错误：",
-            'predict_error_help': "请检查输入数据。"
+            'predict_error_help': "请检查输入数据。",
+            'shap_error': "SHAP 分析器加载失败。请确保您使用了 V6 版本的步骤 25 来重新生成 .joblib 文件。"
         }
     },
     'en': {
@@ -66,22 +63,14 @@ LANG_STRINGS = {
         'subheader_continuous': "Continuous Features",
         'subheader_binary': "Binary Features",
         'features': {
-            'age': 'Age (years)',
-            'BMI': 'BMI (kg/m²)',
-            'ABO': 'Serum Aβ Oligomers (ABO)',
-            'edu': 'Education (years)',
-            'gender': 'Sex',
-            'alcohol': 'Alcohol Use',
-            'dementia_family_history': 'Family History of Dementia',
-            'hypertension': 'Hypertension',
-            'diabetes': 'Diabetes Mellitus',
-            'hyperlipidemia': 'Hyperlipidemia',
-            'APOE4_carrier': 'APOE ε4 Carrier Status',
-            'GDS_DIA': 'Depressive Symptoms (GDS)'
+            'age': 'Age (years)', 'BMI': 'BMI (kg/m²)', 'ABO': 'Serum Aβ Oligomers (ABO)', 'edu': 'Education (years)',
+            'gender': 'Sex', 'alcohol': 'Alcohol Use', 'dementia_family_history': 'Family History of Dementia',
+            'hypertension': 'Hypertension', 'diabetes': 'Diabetes Mellitus', 'hyperlipidemia': 'Hyperlipidemia',
+            'APOE4_carrier': 'APOE ε4 Carrier Status', 'GDS_DIA': 'Depressive Symptoms (GDS)'
         },
-        'gender_map': {'Female': 0, 'Male': 1}, # [V5]
-        'binary_map_status': {'No': 0, 'Yes': 1}, # [V5]
-        'binary_map_history': {'No': 0, 'Yes': 1}, # [V5]
+        'gender_map': {'Female': 0, 'Male': 1},
+        'binary_map_status': {'No': 0, 'Yes': 1},
+        'binary_map_history': {'No': 0, 'Yes': 1},
         'input_summary': "Model Input Overview",
         'input_help': "Please modify values in the left sidebar.",
         'input_table_cols': {'feature': "Feature", 'value': "Input Value"},
@@ -94,34 +83,43 @@ LANG_STRINGS = {
         'results_delta_low': "Below threshold {threshold:.4f}",
         'results_metric_label': "MCI/AD Predicted Probability",
         'results_caption': "This probability ({probability:.4f}) represents the model's predicted likelihood of cognitive impairment (MCI/AD).",
+        'shap_expander': "📊 Show/Hide Individual Prediction Attribution (SHAP Analysis)",
+        'shap_help': "The plot below shows how each feature pushed the prediction from the base value ({base_value:.2f}) to the final value ({probability:.2f}).",
+        'shap_help_red': "**Red features** (e.g., Age) pushed the prediction to **increase** risk.",
+        'shap_help_blue': "**Blue features** (e.g., Education) pushed the prediction to **decrease** risk.",
         'errors': {
             'load_fail_header': "❌ Model Load Failed",
             'load_fail_help': "Please check the error message above and ensure the model file exists.",
             'file_not_found': "❌ Error: Model file not found at {path}.",
-            'file_not_found_help': "Please ensure you have run Step 25 of the V4.43 script, and the 'ad_screening_model_v4_43.joblib' file is in the same folder as this app.py.",
+            'file_not_found_help': "Please ensure you have run Step 25 (V6) of the V4.43 script, and 'ad_screening_model_v4_43_with_shap.joblib' is in the same folder as app.py.",
             'load_error': "Error loading model: {e}",
             'predict_error': "An error occurred during prediction:",
-            'predict_error_help': "Please check the input data."
+            'predict_error_help': "Please check the input data.",
+            'shap_error': "SHAP Explainer failed to load. Please ensure you regenerated the .joblib file using Step 25 (V6)."
         }
     }
 }
 
 # --- 2. 初始化会话状态 (Session State) ---
 if 'lang' not in st.session_state:
-    st.session_state.lang = 'zh' # 默认语言设置为中文
+    st.session_state.lang = 'zh' 
 
 # --- 3. 加载模型和预处理工件 ---
+# [V6] 更改了模型文件名
 try:
-    MODEL_PATH = Path(__file__).parent / "ad_screening_model_v4_43.joblib"
+    MODEL_PATH = Path(__file__).parent / "ad_screening_model_v4_43_with_shap.joblib"
 except NameError:
-    MODEL_PATH = Path(".") / "ad_screening_model_v4_43.joblib"
+    MODEL_PATH = Path(".") / "ad_screening_model_v4_43_with_shap.joblib"
 
 @st.cache_resource
 def load_artifacts(path):
-    """加载 joblib 文件。"""
     T = LANG_STRINGS[st.session_state.lang]['errors'] 
     try:
         artifacts = joblib.load(path)
+        # [V6] 增加 SHAP 检查
+        if 'shap_explainer' not in artifacts:
+             st.error(T['shap_error'])
+             return None
         return artifacts
     except FileNotFoundError:
         st.error(T['file_not_found'].format(path=path.resolve()))
@@ -133,18 +131,19 @@ def load_artifacts(path):
 
 artifacts = load_artifacts(MODEL_PATH)
 
-# --- 4. 定义预测函数 ---
-def preprocess_and_predict(input_data, artifacts):
+# --- 4. 定义预测函数 (V6 拆分) ---
+
+@st.cache_data(show_spinner=False)
+def preprocess_data(input_data, _artifacts):
     """
-    使用加载的工件对新输入数据进行完整的预处理和预测。
-    (此函数内部逻辑不变)
+    [V6 新增] 仅执行预处理，返回可用于模型和 SHAP 的 X_scaled。
+    使用 _artifacts (带下划线) 来提示 Streamlit 缓存。
     """
-    imputer = artifacts["imputer"]
-    scaler = artifacts["scaler"]
-    model = artifacts["model"]
-    feature_cols = artifacts["feature_cols"]
-    continuous_cols = artifacts["continuous_cols"]
-    binary_cols = artifacts["binary_cols"]
+    imputer = _artifacts["imputer"]
+    scaler = _artifacts["scaler"]
+    feature_cols = _artifacts["feature_cols"]
+    continuous_cols = _artifacts["continuous_cols"]
+    binary_cols = _artifacts["binary_cols"]
     
     input_df = pd.DataFrame([input_data])
     X_raw = input_df[feature_cols] 
@@ -162,9 +161,7 @@ def preprocess_and_predict(input_data, artifacts):
         if cols_to_scale:
             X_scaled[cols_to_scale] = scaler.transform(X_imputed[cols_to_scale])
     
-    probability = artifacts["model"].predict_proba(X_scaled)[:, 1]
-    
-    return probability[0] 
+    return X_scaled
 
 # --- 5. 构建 Streamlit 用户界面 ---
 def main_app():
@@ -194,94 +191,92 @@ def main_app():
     st.markdown(T['model_info'].format(model_name=model_name, threshold=threshold))
     st.markdown("---")
 
-    # --- 5.3 侧边栏输入 [V5 变更] ---
+    # --- 5.3 侧边栏输入 ---
     st.sidebar.header(T['sidebar_header'])
     st.sidebar.markdown(T['sidebar_help'])
     
     input_features = {} 
     T_FEATURES = T['features'] 
 
-    # --- 连续特征 (4) ---
+    # 连续特征
     st.sidebar.subheader(T['subheader_continuous'])
     input_features['age'] = st.sidebar.number_input(label=T_FEATURES['age'], min_value=18, max_value=100, value=65)
     input_features['BMI'] = st.sidebar.number_input(label=T_FEATURES['BMI'], min_value=10.0, max_value=50.0, value=22.0, step=0.1)
     input_features['ABO'] = st.sidebar.number_input(label=T_FEATURES['ABO'], min_value=0.0, value=50.0, step=1.0)
     input_features['edu'] = st.sidebar.number_input(label=T_FEATURES['edu'], min_value=0, max_value=30, value=12)
 
-    # --- 二分类特征 (8) [V5 逻辑更新] ---
+    # 二分类特征
     st.sidebar.subheader(T['subheader_binary'])
-    
-    # 性别
     gender_map = T['gender_map'] 
     gender_choice = st.sidebar.selectbox(T_FEATURES['gender'], options=gender_map.keys())
     input_features['gender'] = gender_map[gender_choice]
     
-    # 经历类特征 (有/无)
     map_history = T['binary_map_history']
-    
     choice_alcohol = st.sidebar.selectbox(T_FEATURES['alcohol'], options=map_history.keys())
     input_features['alcohol'] = map_history[choice_alcohol]
-    
     choice_dementia = st.sidebar.selectbox(T_FEATURES['dementia_family_history'], options=map_history.keys())
     input_features['dementia_family_history'] = map_history[choice_dementia]
 
-    # 状态类特征 (是/否)
     map_status = T['binary_map_status']
-    
     choice_hypertension = st.sidebar.selectbox(T_FEATURES['hypertension'], options=map_status.keys())
     input_features['hypertension'] = map_status[choice_hypertension]
-    
     choice_diabetes = st.sidebar.selectbox(T_FEATURES['diabetes'], options=map_status.keys())
     input_features['diabetes'] = map_status[choice_diabetes]
-    
     choice_hyperlipidemia = st.sidebar.selectbox(T_FEATURES['hyperlipidemia'], options=map_status.keys())
     input_features['hyperlipidemia'] = map_status[choice_hyperlipidemia]
-    
     choice_apoe = st.sidebar.selectbox(T_FEATURES['APOE4_carrier'], options=map_status.keys())
     input_features['APOE4_carrier'] = map_status[choice_apoe]
-    
     choice_gds = st.sidebar.selectbox(T_FEATURES['GDS_DIA'], options=map_status.keys())
     input_features['GDS_DIA'] = map_status[choice_gds]
     
     # --- 5.4 主面板显示 ---
     col1, col2 = st.columns([1, 2])
     
+    # 准备用于 SHAP 的显示数据 (在按钮外部，以便 SHAP 可以访问)
+    display_labels = T['features']
+    display_data_list = []
+    
+    for key, value in input_features.items():
+        label = display_labels[key]
+        display_value = value
+        if key == 'gender':
+            display_value = next((k for k, v in gender_map.items() if v == value), value)
+        elif key in ['alcohol', 'dementia_family_history']:
+            display_value = next((k for k, v in map_history.items() if v == value), value)
+        elif key in ['hypertension', 'diabetes', 'hyperlipidemia', 'APOE4_carrier', 'GDS_DIA']:
+            display_value = next((k for k, v in map_status.items() if v == value), value)
+        display_data_list.append({
+            'label': label,
+            'value': display_value,
+            'original_value': value # [V6] 保留原始数值
+        })
+    
+    # [V6] 创建两个 DataFrame，一个用于显示，一个用于 SHAP
+    display_df_for_table = pd.DataFrame(display_data_list).set_index('label')[['value']]
+    display_df_for_table.index.name = T['input_table_cols']['feature']
+    display_df_for_table.columns = [T['input_table_cols']['value']]
+    
+    # [V6] 创建 SHAP 需要的输入 (有序的原始值 和 有序的标签)
+    shap_features = pd.Series([d['original_value'] for d in display_data_list], index=[d['label'] for d in display_data_list])
+    
     with col1:
         st.subheader(T['input_summary'])
         st.markdown(T['input_help'])
-        
-        display_labels = T['features']
-        
-        # [V5] 优化显示逻辑，以正确显示中文选项
-        display_data = []
-        for key, value in input_features.items():
-            label = display_labels[key]
-            # 特殊处理二分类的显示值
-            display_value = value
-            if key == 'gender':
-                # 反向查找 map 的键
-                display_value = next((k for k, v in gender_map.items() if v == value), value)
-            elif key in ['alcohol', 'dementia_family_history']:
-                display_value = next((k for k, v in map_history.items() if v == value), value)
-            elif key in ['hypertension', 'diabetes', 'hyperlipidemia', 'APOE4_carrier', 'GDS_DIA']:
-                display_value = next((k for k, v in map_status.items() if v == value), value)
-            
-            display_data.append({
-                T['input_table_cols']['feature']: label,
-                T['input_table_cols']['value']: display_value
-            })
-            
-        input_df_display = pd.DataFrame(display_data).set_index(T['input_table_cols']['feature'])
-        st.dataframe(input_df_display)
+        st.dataframe(display_df_for_table)
 
     with col2:
         st.subheader(T['results_header'])
         
-        # --- 5.5 预测按钮 ---
+        # --- 5.5 预测按钮和 SHAP 分析 [V6 重构] ---
         if st.button(T['predict_button'], type="primary", use_container_width=True):
             
             try:
-                probability = preprocess_and_predict(input_features, artifacts)
+                # --- A. 预处理 ---
+                X_scaled = preprocess_data(input_features, artifacts)
+                
+                # --- B. 模型预测 ---
+                model = artifacts["model"]
+                probability = model.predict_proba(X_scaled)[:, 1][0]
                 
                 if probability >= threshold:
                     classification = T['results_risk_high']
@@ -302,6 +297,44 @@ def main_app():
                 st.progress(probability)
                 st.caption(T['results_caption'].format(probability=probability))
                 
+                # --- C. [V6 新增] SHAP 分析 ---
+                with st.expander(T['shap_expander']):
+                    st.markdown("---")
+                    
+                    # 1. 加载分析器并计算 SHAP 值
+                    explainer = artifacts["shap_explainer"]
+                    shap_values = explainer.shap_values(X_scaled)
+                    
+                    # 2. 获取 基线值(expected_value) 和 预测值(shap_values)
+                    # [1] 代表类别 1 (MCI/AD)
+                    # [0] 代表第一个 (也是唯一一个) 样本
+                    base_value_class1 = explainer.expected_value[1]
+                    shap_values_class1 = shap_values[1][0]
+
+                    st.markdown(T['shap_help'].format(base_value=base_value_class1, probability=probability))
+                    st.markdown(T['shap_help_red'])
+                    st.markdown(T['shap_help_blue'])
+                    
+                    # 3. 绘制 SHAP 力图 (Force Plot)
+                    # 我们使用 st.shap() 来安全地渲染 HTML/JS
+                    st.shap(shap.force_plot(
+                        base_value=base_value_class1,
+                        shap_values=shap_values_class1,
+                        features=shap_features.values, # <--- 用户的原始输入值
+                        feature_names=shap_features.index # <--- 翻译后的特征名
+                    ), height=150, width=800)
+                    
+                    # 4. (可选) 绘制瀑布图 (Waterfall Plot)
+                    # 瀑布图在某些情况下更清晰
+                    # fig, ax = plt.subplots()
+                    # shap.waterfall_plot(shap.Explanation(
+                    #     values=shap_values_class1,
+                    #     base_values=base_value_class1,
+                    #     data=shap_features.values,
+                    #     feature_names=shap_features.index.tolist()
+                    # ), max_display=12, show=False)
+                    # st.pyplot(fig, clear_figure=True)
+
             except Exception as e:
                 st.error(T['errors']['predict_error'])
                 st.exception(e)
@@ -309,4 +342,6 @@ def main_app():
 
 # --- 6. 运行 App ---
 if __name__ == "__main__":
+    # [V6] 初始化 SHAP (它需要 JS)
+    shap.initjs()
     main_app()

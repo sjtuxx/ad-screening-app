@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 import shap # 导入 SHAP
+import streamlit.components.v1 as components # [V9] 导入 HTML 组件
 
 # --- 1. 语言和文本内容 (LANG_STRINGS) ---
 # [V7] 更新了错误提示
@@ -294,7 +295,7 @@ def main_app():
     with col2:
         st.subheader(T['results_header'])
         
-        # --- 6.5 预测按钮和 SHAP 分析 [V8 修复] ---
+        # --- 6.5 预测按钮和 SHAP 分析 [V9 修复] ---
         if st.button(T['predict_button'], type="primary", use_container_width=True):
             
             try:
@@ -324,7 +325,7 @@ def main_app():
                 st.progress(probability)
                 st.caption(T['results_caption'].format(probability=probability))
                 
-                # --- C. [V8 修复] SHAP 分析 ---
+                # --- C. [V9 修复] SHAP 分析 ---
                 with st.expander(T['shap_expander']):
                     st.markdown("---")
                     
@@ -332,40 +333,39 @@ def main_app():
                     shap_values = explainer.shap_values(X_scaled)
                     
                     # 2. [V8 修复] 检查 shap_values 是列表(size 2)还是单个数组
-                    #    X_scaled 是单个样本, shape (1, 12)
-                    
                     if isinstance(shap_values, list) and len(shap_values) == 2:
-                        # 正常情况：返回 [shap_class_0, shap_class_1]
-                        # shap_values[1] 是 class 1 的数组, shape (1, 12)
-                        # 我们需要第一个 (也是唯一一个) 样本 [0]
                         shap_values_class1_single_sample = shap_values[1][0]
-                    
                     elif isinstance(shap_values, np.ndarray) and shap_values.shape[0] == 1:
-                        # 异常情况：只返回了一个数组, shape (1, 12)
-                        # 我们假设这就是 class 1, 并获取第一个 (也是唯一一个) 样本 [0]
                         shap_values_class1_single_sample = shap_values[0]
-                    
                     else:
-                        # 捕获其他意外格式, 例如 list[1]
                         try:
-                            # 尝试假设它是一个单元素列表
                             st.warning("SHAP analysis returned an unexpected list format. Attempting to parse.")
                             shap_values_class1_single_sample = shap_values[0][0]
                         except Exception:
                             st.error(f"SHAP analysis returned an unhandled format: {type(shap_values)}")
-                            raise # 重新引发错误，停止执行
+                            raise 
 
                     st.markdown(T['shap_help'].format(base_value=base_value_class1, probability=probability))
                     st.markdown(T['shap_help_red'])
                     st.markdown(T['shap_help_blue'])
                     
-                    # 3. 绘制 SHAP 力图 (Force Plot)
-                    st.shap(shap.force_plot(
+                    # 3. [V9 修复] 绘制 SHAP 力图 (Force Plot)
+                    #    不使用 st.shap(), 而是使用 st.components.v1.html
+                    
+                    # (a) 创建 SHAP 力图对象
+                    force_plot = shap.force_plot(
                         base_value=base_value_class1,
-                        shap_values=shap_values_class1_single_sample, # <--- [V8] 使用修复后的变量
+                        shap_values=shap_values_class1_single_sample, 
                         features=shap_features.values, 
                         feature_names=shap_features.index 
-                    ), height=150, width=800)
+                    )
+                    
+                    # (b) 使用 .html() 方法将其转换为 HTML 字符串
+                    #     我们还需要手动加载 SHAP JS (因为 st.shap() 不再为我们做这件事)
+                    shap_html = f"<head>{shap.getjs()}</head><body>{force_plot.html()}</body>"
+                    
+                    # (c) 使用 st.components.v1.html 渲染
+                    components.html(shap_html, height=150, width=800, scrolling=False)
                     
             except Exception as e:
                 st.error(T['errors']['predict_error'])

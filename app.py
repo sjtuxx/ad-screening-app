@@ -3,7 +3,48 @@ import joblib
 import pandas as pd
 import numpy as np
 from pathlib import Path
+import streamlit as pd
+import streamlit as st
 
+# --- 密码保护功能 ---
+def check_password():
+    """Returns `True` if the user had a correct password."""
+
+    def password_entered():
+        """Checks whether a password entered by the user is correct."""
+        if st.session_state["password"] == st.secrets["password"]:
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]  # 不保留密码
+        else:
+            st.session_state["password_correct"] = False
+
+    # 如果已经验证通过，直接返回 True
+    if "password_correct" not in st.session_state:
+        st.session_state["password_correct"] = False
+
+    if st.session_state["password_correct"]:
+        return True
+
+    # 显示输入框
+    st.text_input(
+        "请输入访问密码 (Password)", type="password", on_change=password_entered, key="password"
+    )
+
+    if "password_correct" in st.session_state and st.session_state["password_correct"] is False:
+        st.error("😕 密码错误，请重试。")
+
+    return False
+
+# --- 主程序逻辑 ---
+if not check_password():
+    st.stop()  # 如果密码不对，停止执行后续代码
+
+# ==========================================
+# 下面放您原来的所有代码 (模型加载、侧边栏、预测等)
+# ==========================================
+
+st.title("🧠 阿尔茨海默病早期筛查系统 (已加密)")
+# ... 您的其余代码 ...
 # [V16] 移除了 shap 和 streamlit.components.v1 的导入
 
 # --- 1. 语言和文本内容 (LANG_STRINGS) ---
@@ -288,3 +329,4 @@ def main_app():
 # --- 6. 运行 App ---
 if __name__ == "__main__":
     main_app()
+

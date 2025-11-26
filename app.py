@@ -3,9 +3,8 @@ import joblib
 import pandas as pd
 import numpy as np
 from pathlib import Path
-import streamlit as pd
+import pandas as pd     # <--- pd 应该是 pandas
 import streamlit as st
-
 # --- 密码保护功能 ---
 def check_password():
     """Returns `True` if the user had a correct password."""
@@ -329,4 +328,5 @@ def main_app():
 # --- 6. 运行 App ---
 if __name__ == "__main__":
     main_app()
+
 
